@@ -35,22 +35,26 @@
 #define PRINT_BUF_LEN 64
 
 typedef __builtin_va_list va_list;
-#define va_start(v,l)   __builtin_va_start(v,l)
-#define va_end(v)       __builtin_va_end(v)
-#define va_arg(v,l)     __builtin_va_arg(v,l)
-#define va_copy(d,s)    __builtin_va_copy(d,s)
+#define va_start(v, l) __builtin_va_start(v, l)
+#define va_end(v) __builtin_va_end(v)
+#define va_arg(v, l) __builtin_va_arg(v, l)
+#define va_copy(d, s) __builtin_va_copy(d, s)
 
 static void simple_outputchar(char **str, char c)
 {
-	if (str) {
+	if (str)
+	{
 		**str = c;
 		++(*str);
-	} else {
+	}
+	else
+	{
 		uart_send(c);
 	}
 }
 
-enum flags {
+enum flags
+{
 	PAD_ZERO = 1,
 	PAD_RIGHT = 2
 };
@@ -59,7 +63,8 @@ static int prints(char **out, const char *string, int width, int flags)
 {
 	int pc = 0, padchar = ' ';
 
-	if (width > 0) {
+	if (width > 0)
+	{
 		int len = 0;
 		const char *ptr;
 		for (ptr = string; *ptr; ++ptr)
@@ -71,17 +76,21 @@ static int prints(char **out, const char *string, int width, int flags)
 		if (flags & PAD_ZERO)
 			padchar = '0';
 	}
-	if (!(flags & PAD_RIGHT)) {
-		for (; width > 0; --width) {
+	if (!(flags & PAD_RIGHT))
+	{
+		for (; width > 0; --width)
+		{
 			simple_outputchar(out, padchar);
 			++pc;
 		}
 	}
-	for (; *string; ++string) {
+	for (; *string; ++string)
+	{
 		simple_outputchar(out, *string);
 		++pc;
 	}
-	for (; width > 0; --width) {
+	for (; width > 0; --width)
+	{
 		simple_outputchar(out, padchar);
 		++pc;
 	}
@@ -98,20 +107,23 @@ static int prints(char **out, const char *string, int width, int flags)
 // you do not need to print prefix like "0x", "0"...
 // Remember the most significant digit is printed first.
 static int printk_write_num(char **out, long long i, int base, int sign,
-			    int width, int flags, int letbase)
+							int width, int flags, int letbase)
 {
 	char print_buf[PRINT_BUF_LEN];
 	char *s;
 	int t, neg = 0, pc = 0;
 	unsigned long long u = i;
-
-	if (i == 0) {
+	unsigned long long wo = i;
+	int tt = 0;
+	if (i == 0)
+	{
 		print_buf[0] = '0';
 		print_buf[1] = '\0';
 		return prints(out, print_buf, width, flags);
 	}
 
-	if (sign && base == 10 && i < 0) {
+	if (sign && base == 10 && i < 0)
+	{
 		neg = 1;
 		u = -i;
 	}
@@ -119,13 +131,31 @@ static int printk_write_num(char **out, long long i, int base, int sign,
 	// store the digitals in the buffer `print_buf`:
 	// 1. the last postion of this buffer must be '\0'
 	// 2. the format is only decided by `base` and `letbase` here
-
-	if (neg) {
-		if (width && (flags & PAD_ZERO)) {
+	while (wo / base)
+	{
+		wo /= base;
+		tt++;
+	}
+	print_buf[tt + 1] = '\0';
+	while (u)
+	{
+		if (u % base > 9)
+			print_buf[tt--] = u % base % 10 + (char *)letbase;
+		else
+			print_buf[tt--] = u % base + '0';
+		u /= base;
+	}
+	s = print_buf;
+	if (neg)
+	{
+		if (width && (flags & PAD_ZERO))
+		{
 			simple_outputchar(out, '-');
 			++pc;
 			--width;
-		} else {
+		}
+		else
+		{
 			*--s = '-';
 		}
 	}
@@ -138,7 +168,8 @@ static int simple_vsprintf(char **out, const char *format, va_list ap)
 	int width, flags;
 	int pc = 0;
 	char scr[2];
-	union {
+	union
+	{
 		char c;
 		char *s;
 		int i;
@@ -154,73 +185,82 @@ static int simple_vsprintf(char **out, const char *format, va_list ap)
 		void *p;
 	} u;
 
-	for (; *format != 0; ++format) {
-		if (*format == '%') {
+	for (; *format != 0; ++format)
+	{
+		if (*format == '%')
+		{
 			++format;
 			width = flags = 0;
 			if (*format == '\0')
 				break;
 			if (*format == '%')
 				goto out;
-			if (*format == '-') {
+			if (*format == '-')
+			{
 				++format;
 				flags = PAD_RIGHT;
 			}
-			while (*format == '0') {
+			while (*format == '0')
+			{
 				++format;
 				flags |= PAD_ZERO;
 			}
-			if (*format == '*') {
+			if (*format == '*')
+			{
 				width = va_arg(ap, int);
 				format++;
-			} else {
+			}
+			else
+			{
 				for (; *format >= '0' && *format <= '9';
-				     ++format) {
+					 ++format)
+				{
 					width *= 10;
 					width += *format - '0';
 				}
 			}
-			switch (*format) {
+			switch (*format)
+			{
 			case ('d'):
 				u.i = va_arg(ap, int);
 				pc +=
-				    printk_write_num(out, u.i, 10, 1, width,
-						     flags, 'a');
+					printk_write_num(out, u.i, 10, 1, width,
+									 flags, 'a');
 				break;
 
 			case ('u'):
 				u.u = va_arg(ap, unsigned int);
 				pc +=
-				    printk_write_num(out, u.u, 10, 0, width,
-						     flags, 'a');
+					printk_write_num(out, u.u, 10, 0, width,
+									 flags, 'a');
 				break;
 
 			case ('o'):
 				u.u = va_arg(ap, unsigned int);
 				pc +=
-				    printk_write_num(out, u.u, 8, 0, width,
-						     flags, 'a');
+					printk_write_num(out, u.u, 8, 0, width,
+									 flags, 'a');
 				break;
 
 			case ('x'):
 				u.u = va_arg(ap, unsigned int);
 				pc +=
-				    printk_write_num(out, u.u, 16, 0, width,
-						     flags, 'a');
+					printk_write_num(out, u.u, 16, 0, width,
+									 flags, 'a');
 				break;
 
 			case ('X'):
 				u.u = va_arg(ap, unsigned int);
 				pc +=
-				    printk_write_num(out, u.u, 16, 0, width,
-						     flags, 'A');
+					printk_write_num(out, u.u, 16, 0, width,
+									 flags, 'A');
 				break;
 
 			case ('p'):
 				u.lu = va_arg(ap, unsigned long);
 				pc +=
-				    printk_write_num(out, u.lu, 16, 0, width,
-						     flags, 'a');
+					printk_write_num(out, u.lu, 16, 0, width,
+									 flags, 'a');
 				break;
 
 			case ('c'):
@@ -233,106 +273,108 @@ static int simple_vsprintf(char **out, const char *format, va_list ap)
 			case ('s'):
 				u.s = va_arg(ap, char *);
 				pc +=
-				    prints(out, u.s ? u.s : "(null)", width,
-					   flags);
+					prints(out, u.s ? u.s : "(null)", width,
+						   flags);
 				break;
 			case ('l'):
 				++format;
-				switch (*format) {
+				switch (*format)
+				{
 				case ('d'):
 					u.li = va_arg(ap, long);
 					pc +=
-					    printk_write_num(out, u.li, 10, 1,
-							     width, flags, 'a');
+						printk_write_num(out, u.li, 10, 1,
+										 width, flags, 'a');
 					break;
 
 				case ('u'):
 					u.lu = va_arg(ap, unsigned long);
 					pc +=
-					    printk_write_num(out, u.lu, 10, 0,
-							     width, flags, 'a');
+						printk_write_num(out, u.lu, 10, 0,
+										 width, flags, 'a');
 					break;
 
 				case ('o'):
 					u.lu = va_arg(ap, unsigned long);
 					pc +=
-					    printk_write_num(out, u.lu, 8, 0,
-							     width, flags, 'a');
+						printk_write_num(out, u.lu, 8, 0,
+										 width, flags, 'a');
 					break;
 
 				case ('x'):
 					u.lu = va_arg(ap, unsigned long);
 					pc +=
-					    printk_write_num(out, u.lu, 16, 0,
-							     width, flags, 'a');
+						printk_write_num(out, u.lu, 16, 0,
+										 width, flags, 'a');
 					break;
 
 				case ('X'):
 					u.lu = va_arg(ap, unsigned long);
 					pc +=
-					    printk_write_num(out, u.lu, 16, 0,
-							     width, flags, 'A');
+						printk_write_num(out, u.lu, 16, 0,
+										 width, flags, 'A');
 					break;
 
 				case ('l'):
 					++format;
-					switch (*format) {
+					switch (*format)
+					{
 					case ('d'):
 						u.lli = va_arg(ap, long long);
 						pc +=
-						    printk_write_num(out, u.lli,
-								     10, 1,
-								     width,
-								     flags,
-								     'a');
+							printk_write_num(out, u.lli,
+											 10, 1,
+											 width,
+											 flags,
+											 'a');
 						break;
 
 					case ('u'):
 						u.llu =
-						    va_arg(ap,
-							   unsigned long long);
+							va_arg(ap,
+								   unsigned long long);
 						pc +=
-						    printk_write_num(out, u.llu,
-								     10, 0,
-								     width,
-								     flags,
-								     'a');
+							printk_write_num(out, u.llu,
+											 10, 0,
+											 width,
+											 flags,
+											 'a');
 						break;
 
 					case ('o'):
 						u.llu =
-						    va_arg(ap,
-							   unsigned long long);
+							va_arg(ap,
+								   unsigned long long);
 						pc +=
-						    printk_write_num(out, u.llu,
-								     8, 0,
-								     width,
-								     flags,
-								     'a');
+							printk_write_num(out, u.llu,
+											 8, 0,
+											 width,
+											 flags,
+											 'a');
 						break;
 
 					case ('x'):
 						u.llu =
-						    va_arg(ap,
-							   unsigned long long);
+							va_arg(ap,
+								   unsigned long long);
 						pc +=
-						    printk_write_num(out, u.llu,
-								     16, 0,
-								     width,
-								     flags,
-								     'a');
+							printk_write_num(out, u.llu,
+											 16, 0,
+											 width,
+											 flags,
+											 'a');
 						break;
 
 					case ('X'):
 						u.llu =
-						    va_arg(ap,
-							   unsigned long long);
+							va_arg(ap,
+								   unsigned long long);
 						pc +=
-						    printk_write_num(out, u.llu,
-								     16, 0,
-								     width,
-								     flags,
-								     'A');
+							printk_write_num(out, u.llu,
+											 16, 0,
+											 width,
+											 flags,
+											 'A');
 						break;
 
 					default:
@@ -345,97 +387,99 @@ static int simple_vsprintf(char **out, const char *format, va_list ap)
 				break;
 			case ('h'):
 				++format;
-				switch (*format) {
+				switch (*format)
+				{
 				case ('d'):
 					u.hi = va_arg(ap, int);
 					pc +=
-					    printk_write_num(out, u.hi, 10, 1,
-							     width, flags, 'a');
+						printk_write_num(out, u.hi, 10, 1,
+										 width, flags, 'a');
 					break;
 
 				case ('u'):
 					u.hu = va_arg(ap, unsigned int);
 					pc +=
-					    printk_write_num(out, u.lli, 10, 0,
-							     width, flags, 'a');
+						printk_write_num(out, u.lli, 10, 0,
+										 width, flags, 'a');
 					break;
 
 				case ('o'):
 					u.hu = va_arg(ap, unsigned int);
 					pc +=
-					    printk_write_num(out, u.lli, 8, 0,
-							     width, flags, 'a');
+						printk_write_num(out, u.lli, 8, 0,
+										 width, flags, 'a');
 					break;
 
 				case ('x'):
 					u.hu = va_arg(ap, unsigned int);
 					pc +=
-					    printk_write_num(out, u.lli, 16, 0,
-							     width, flags, 'a');
+						printk_write_num(out, u.lli, 16, 0,
+										 width, flags, 'a');
 					break;
 
 				case ('X'):
 					u.hu = va_arg(ap, unsigned int);
 					pc +=
-					    printk_write_num(out, u.lli, 16, 0,
-							     width, flags, 'A');
+						printk_write_num(out, u.lli, 16, 0,
+										 width, flags, 'A');
 					break;
 
 				case ('h'):
 					++format;
-					switch (*format) {
+					switch (*format)
+					{
 					case ('d'):
 						u.hhi = va_arg(ap, int);
 						pc +=
-						    printk_write_num(out, u.hhi,
-								     10, 1,
-								     width,
-								     flags,
-								     'a');
+							printk_write_num(out, u.hhi,
+											 10, 1,
+											 width,
+											 flags,
+											 'a');
 						break;
 
 					case ('u'):
 						u.hhu =
-						    va_arg(ap, unsigned int);
+							va_arg(ap, unsigned int);
 						pc +=
-						    printk_write_num(out, u.lli,
-								     10, 0,
-								     width,
-								     flags,
-								     'a');
+							printk_write_num(out, u.lli,
+											 10, 0,
+											 width,
+											 flags,
+											 'a');
 						break;
 
 					case ('o'):
 						u.hhu =
-						    va_arg(ap, unsigned int);
+							va_arg(ap, unsigned int);
 						pc +=
-						    printk_write_num(out, u.lli,
-								     8, 0,
-								     width,
-								     flags,
-								     'a');
+							printk_write_num(out, u.lli,
+											 8, 0,
+											 width,
+											 flags,
+											 'a');
 						break;
 
 					case ('x'):
 						u.hhu =
-						    va_arg(ap, unsigned int);
+							va_arg(ap, unsigned int);
 						pc +=
-						    printk_write_num(out, u.lli,
-								     16, 0,
-								     width,
-								     flags,
-								     'a');
+							printk_write_num(out, u.lli,
+											 16, 0,
+											 width,
+											 flags,
+											 'a');
 						break;
 
 					case ('X'):
 						u.hhu =
-						    va_arg(ap, unsigned int);
+							va_arg(ap, unsigned int);
 						pc +=
-						    printk_write_num(out, u.lli,
-								     16, 0,
-								     width,
-								     flags,
-								     'A');
+							printk_write_num(out, u.lli,
+											 16, 0,
+											 width,
+											 flags,
+											 'A');
 						break;
 
 					default:
@@ -449,8 +493,10 @@ static int simple_vsprintf(char **out, const char *format, va_list ap)
 			default:
 				break;
 			}
-		} else {
- out:
+		}
+		else
+		{
+		out:
 			simple_outputchar(out, *format);
 			++pc;
 		}
