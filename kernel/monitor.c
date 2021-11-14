@@ -16,20 +16,26 @@
 #include <common/printk.h>
 #include <common/types.h>
 
-static inline __attribute__ ((always_inline))
-u64 read_fp()
+static inline __attribute__((always_inline))
+u64
+read_fp()
 {
 	u64 fp;
-	__asm __volatile("mov %0, x29":"=r"(fp));
+	__asm __volatile("mov %0, x29"
+					 : "=r"(fp));
 	return fp;
 }
 
-__attribute__ ((optimize("O1")))
-int stack_backtrace()
+__attribute__((optimize("O1"))) int stack_backtrace()
 {
 	printk("Stack backtrace:\n");
-
-	// Your code here.
-
+	u64 *fp = (u64 *)*((u64 *)read_fp());
+	while (fp!=0)
+	{
+		printk("LR %lx  ", *(fp + 1));
+		printk("FP %lx  ", fp);
+		printk("Args %d %d %d %d",*(fp-2),*(fp-1),*fp,*(fp+1),*(fp+2));
+		fp = (u64*) *fp;
+	}
 	return 0;
 }
